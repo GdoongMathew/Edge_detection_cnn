@@ -3,6 +3,7 @@ import numpy as np
 from os import listdir
 import tensorflow as tf
 import random
+import csv
 import cv2
 import os
 
@@ -10,9 +11,16 @@ target_dir = "BSDS500/data/"
 train_img = listdir(target_dir + "images/train/")
 gnd_data = listdir(target_dir + "groundTruth/train")
 
+out_file = open(target_dir + "Preprocess_output.csv", "w", newline='')
+
 total_edge_map = [None] * len(train_img)
 # Create an empty list to store all edge images
 total_image = [None] * len(train_img)
+
+# Define the fieldname in directory
+fieldnames = ["img_name", "crop_resolution", "crop_img_index", "crop_gnd_truth"]
+writer = csv.DictWriter(out_file, fieldnames=fieldnames)
+writer.writeheader()
 
 for _train_img in train_img:
 
@@ -64,10 +72,11 @@ for _train_img in train_img:
 
     for h in range(ori_img.shape[0] - crop_res):
         for w in range(ori_img.shape[1] - crop_res):
+            print(str(w + h * (ori_img.shape[0] - crop_res)) + "/" + str(num_total_cropped))
             if first:
 
                 # Copy the first crop image into crop_ori_img/ crop_gnd_truth if this's the first crop.
-                crop_ori_img = np.array([ori_img[h: h + crop_res, w: w + crop_res]])
+                # crop_ori_img = np.array([ori_img[h: h + crop_res, w: w + crop_res]])
                 crop_gnd_truth = np.array([norm_img[h: h + crop_res, w: w + crop_res]])
                 crop_img_index.append(w + h * (ori_img.shape[0] - crop_res))
                 first = not first
@@ -77,28 +86,40 @@ for _train_img in train_img:
                 """
                 if np.count_nonzero(norm_img[h: h + crop_res, w: w + crop_res]):
                     # Not a zero matrix, then store them in an array
-                    crop_ori_img = np.append(np.array([ori_img[h: h + crop_res, w: w + crop_res]]), crop_ori_img, axis=0)
+                    #crop_ori_img = np.append(np.array([ori_img[h: h + crop_res, w: w + crop_res]]), crop_ori_img, axis=0)
                     crop_gnd_truth = np.append(np.array([norm_img[h: h + crop_res, w: w + crop_res]]), crop_gnd_truth, axis=0)
                     crop_img_index.append([h, w])
-                    cv2.imshow("crop ori img", ori_img[h: h + crop_res, w: w + crop_res])
-            cv2.waitKey(15)
+                    #cv2.imshow("crop ori img", ori_img[h: h + crop_res, w: w + crop_res])
+            #cv2.waitKey(15)
 
-    zeros_mat = list(set(list(range(num_total_cropped))) - set(crop_img_index))    # Store index of all zeros crop images 
-    zeros_mat = random.shuffle(zeros_mat)          # Shuffle the list
-    num_neg_img = int(len(crop_img_index) / 2)  # Only need half the amount of positive images.
+    # Store index of all zeros crop images
+    zeros_mat = list(set(list(range(num_total_cropped))) - set(crop_img_index))
+
+    # Shuffle the list
+    zeros_mat = random.shuffle(zeros_mat)
+
+    # Only need half the amount of positive images.
+    num_neg_img = int(len(crop_img_index) / 2)
+
+    print("Start to make the ratio of negative/positive 1:2...")
     for i in range(num_neg_img):
         """
         iterate through the zeros_mat. Find the location of no edge image and its corresponding original image.
         """
-        crop_w = int(zeros_mat[i] % (ori_img.shape[1] - crop_res))
-        crop_h = int(zeros_mat[i] / (ori_img.shape[1] - crop_res))
-        tmp_ori_img = ori_img[crop_h: crop_h + crop_res, crop_w: crop_w + crop_res]
-        tmp_norm_img = norm_img[crop_h: crop_h + crop_res, crop_w: crop_w + crop_res]
-        crop_ori_img = np.append(np.array(tmp_ori_img), crop_ori_img, axis=0)
-        crop_gnd_truth = np.append(np.array(tmp_norm_img), crop_ori_img, axis=0)
+        crop_w = int(zeros_mat[i] % (ori_img.shape[1] - crop_res))                      # the location in x axis
+        crop_h = int(zeros_mat[i] / (ori_img.shape[1] - crop_res))                      # the location in y axis
+        tmp_ori_img = ori_img[crop_h: crop_h + crop_res, crop_w: crop_w + crop_res]     # the image that should be cropped
+        tmp_norm_img = norm_img[crop_h: crop_h + crop_res, crop_w: crop_w + crop_res]   # the edge map that corresponds to the image cropped above
+        #crop_ori_img = np.append(np.array(tmp_ori_img), crop_ori_img, axis=0)
+        crop_gnd_truth = np.append(np.array(tmp_norm_img), crop_gnd_truth, axis=0)
+        crop_img_index.append(zeros_mat[i])
 
-    print(crop_ori_img.shape)
+    #print(crop_ori_img.shape)
     print(crop_gnd_truth.shape)
+
+    # Write data into directory.
+    writer.writerow({'img_name': _train_img, "crop_resolution": crop_res, "crop_img_index": crop_img_index, "crop_gnd_truth": crop_gnd_truth})
+
     #cv2.destroyAllWindows()
     total_image.append(biliteral_img)
     total_edge_map.append(edges_map)
