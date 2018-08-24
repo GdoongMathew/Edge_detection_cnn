@@ -1,7 +1,6 @@
 import scipy.io as sio
 import numpy as np
 from os import listdir
-import tensorflow as tf
 import random
 import csv
 import cv2
@@ -48,8 +47,8 @@ for _train_img in train_img:
         edges_map = edges_map + i[0][0][1].astype(np.uint8)
         edges_map = cv2.equalizeHist(edges_map)
 
-    norm_img = cv2.normalize(edges_map, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-
+    #norm_img = cv2.normalize(edges_map, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+    norm_img = edges_map
     # Normalize pixel values into 0 and 1
     """
     cv2.imshow("Original image" + _train_img, ori_img)
@@ -88,15 +87,15 @@ for _train_img in train_img:
                     # Not a zero matrix, then store them in an array
                     #crop_ori_img = np.append(np.array([ori_img[h: h + crop_res, w: w + crop_res]]), crop_ori_img, axis=0)
                     crop_gnd_truth = np.append(np.array([norm_img[h: h + crop_res, w: w + crop_res]]), crop_gnd_truth, axis=0)
-                    crop_img_index.append([h, w])
+                    crop_img_index.append(w + h * (ori_img.shape[0] - crop_res))
                     #cv2.imshow("crop ori img", ori_img[h: h + crop_res, w: w + crop_res])
             #cv2.waitKey(15)
 
     # Store index of all zeros crop images
-    zeros_mat = list(set(list(range(num_total_cropped))) - set(crop_img_index))
+    zeros_mat = list(set(list(range(0, num_total_cropped))) - set(crop_img_index))
 
     # Shuffle the list
-    zeros_mat = random.shuffle(zeros_mat)
+    random.shuffle(zeros_mat)
 
     # Only need half the amount of positive images.
     num_neg_img = int(len(crop_img_index) / 2)
@@ -111,15 +110,13 @@ for _train_img in train_img:
         tmp_ori_img = ori_img[crop_h: crop_h + crop_res, crop_w: crop_w + crop_res]     # the image that should be cropped
         tmp_norm_img = norm_img[crop_h: crop_h + crop_res, crop_w: crop_w + crop_res]   # the edge map that corresponds to the image cropped above
         #crop_ori_img = np.append(np.array(tmp_ori_img), crop_ori_img, axis=0)
-        crop_gnd_truth = np.append(np.array(tmp_norm_img), crop_gnd_truth, axis=0)
+        crop_gnd_truth = np.append(np.array([tmp_norm_img]), crop_gnd_truth, axis=0)
         crop_img_index.append(zeros_mat[i])
 
     #print(crop_ori_img.shape)
     print(crop_gnd_truth.shape)
 
     # Write data into directory.
-    writer.writerow({'img_name': _train_img, "crop_resolution": crop_res, "crop_img_index": crop_img_index, "crop_gnd_truth": crop_gnd_truth})
+    writer.writerow({'img_name': file_ext[0], "crop_resolution": crop_res, "crop_img_index": crop_img_index, "crop_gnd_truth": crop_gnd_truth})
 
-    #cv2.destroyAllWindows()
-    total_image.append(biliteral_img)
-    total_edge_map.append(edges_map)
+exit()
